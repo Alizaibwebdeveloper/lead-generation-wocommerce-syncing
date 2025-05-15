@@ -1,0 +1,236 @@
+/* WooCommerce Lead Generator Form - Enhanced Styling */
+.wc-lead-generator-form {
+    max-width: 900px;
+    margin: 40px auto;
+    padding: 20px;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%);
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+/* Header Styling */
+.wc-lead-header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+.wc-lead-header h1 {
+    font-size: 2.2rem;
+    color: #1a2a44;
+    margin: 0;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* Step Container */
+.wc-lead-step {
+    display: none;
+    padding: 30px;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+.wc-lead-step.active {
+    display: block;
+}
+
+/* Step Title */
+.wc-lead-step h3 {
+    font-size: 1.8rem;
+    color: #1a2a44;
+    margin-bottom: 30px;
+    position: relative;
+    padding-bottom: 10px;
+}
+
+.wc-lead-step h3::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 50px;
+    height: 3px;
+    background: #3b82f6;
+    border-radius: 2px;
+}
+
+/* Progress Bar */
+.wc-lead-progress {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 30px;
+}
+
+.wc-lead-progress span {
+    width: 40px;
+    height: 40px;
+    line-height: 40px;
+    text-align: center;
+    background: #e5e7eb;
+    color: #6b7280;
+    border-radius: 50%;
+    margin: 0 10px;
+    font-weight: bold;
+    transition: all 0.3s ease;
+}
+
+.wc-lead-progress span.active {
+    background: #3b82f6;
+    color: #ffffff;
+}
+
+/* Form Group */
+.form-group {
+    margin-bottom: 25px;
+    position: relative;
+}
+
+.form-group label {
+    position: absolute;
+    top: 12px;
+    left: 15px;
+    color: #6b7280;
+    font-size: 1rem;
+    transition: all 0.2s ease;
+    pointer-events: none;
+}
+
+.form-group input:focus + label,
+.form-group input:not(:placeholder-shown) + label,
+.form-group select:focus + label,
+.form-group select:not(:placeholder-shown) + label,
+.form-group textarea:focus + label,
+.form-group textarea:not(:placeholder-shown) + label {
+    top: -10px;
+    left: 10px;
+    font-size: 0.85rem;
+    color: #3b82f6;
+    background: #ffffff;
+    padding: 0 5px;
+}
+
+/* Form Inputs */
+.form-group input[type="text"],
+.form-group input[type="email"],
+.form-group input[type="tel"],
+.form-group input[type="number"],
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 12px 15px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 1rem;
+    color: #1a2a44;
+    transition: all 0.3s ease;
+    background: #f9fafb;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.form-group textarea {
+    height: 120px;
+    resize: vertical;
+}
+
+/* File Input */
+.form-group input[type="file"] {
+    padding: 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: #f9fafb;
+}
+
+/* Buttons */
+button,
+input[type="submit"] {
+    background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 100%);
+    color: #ffffff;
+    border: none;
+    padding: 12px 30px;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+button:hover,
+input[type="submit"]:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.wc-lead-prev {
+    background: linear-gradient(90deg, #f59e0b 0%, #fbbf24 100%);
+}
+
+.wc-lead-prev:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+}
+
+/* Success Message */
+.wc-lead-success {
+    text-align: center;
+    padding: 20px;
+    background: #dcfce7;
+    color: #166534;
+    border-radius: 8px;
+    margin: 20px 0;
+    animation: slideIn 0.5s ease;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateX(-20px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .wc-lead-generator-form {
+        margin: 20px;
+        padding: 15px;
+    }
+
+    .wc-lead-step {
+        padding: 20px;
+    }
+
+    .wc-lead-header h1 {
+        font-size: 1.8rem;
+    }
+
+    .wc-lead-step h3 {
+        font-size: 1.5rem;
+    }
+
+    button, input[type="submit"] {
+        width: 100%;
+        margin-bottom: 10px;
+    }
+}
+
+/* Accessibility */
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus,
+button:focus,
+input[type="submit"]:focus {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
