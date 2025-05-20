@@ -2,7 +2,7 @@
 /*
 Plugin Name: Générateur de Leads WooCommerce
 Description: Permet aux particuliers de soumettre un projet qui devient un produit WooCommerce, avec des informations masquées jusqu'à l'achat.
-Version: 1.7
+Version: 1.8
 Author: Ali Zaib
 */
 
@@ -25,16 +25,8 @@ function wc_lead_generator_scripts() {
 // Main shortcode for the lead submission form
 add_shortcode('lead_submission_form', 'wc_lead_submission_form');
 function wc_lead_submission_form() {
-    // Check if form was submitted successfully
-    if (isset($_GET['lead_submitted']) && $_GET['lead_submitted'] === 'success') {
-        ob_start();
-        ?>
-        <div class="wc-lead-success">
-            <p><?php _e('Votre demande a été soumise avec succès.', 'wc-lead-generator'); ?></p>
-        </div>
-        <?php
-        return ob_get_clean();
-    }
+    $success_message = '';
+    $error_message = '';
 
     if (isset($_POST['wc_lead_submit'])) {
         try {
@@ -155,21 +147,26 @@ function wc_lead_submission_form() {
                 $variation = new WC_Product_Variation();
                 $variation->set_parent_id($post_id);
                 $variation->set_attributes(['pa_' . $attribute_name => $slug]);
-                $base_price = 10;
-                $price = $slug === 'exclusif' ? $base_price * 1.5 : $base_price;
-                $variation->set_regular_price($price);
-                $variation->set_sale_price($price);
-                $variation->set_price($price);
+                $base_price = 20.00; // Regular price based on image examples
+                $sale_price = $slug === 'standard' ? 10.00 : 20.00; // Sale price lower bound
+                $sale_price_range = $slug === 'standard' ? 15.00 : 40.00; // Sale price upper bound for display
+                $variation->set_regular_price($base_price);
+                $variation->set_sale_price($sale_price);
+                $variation->set_price($sale_price); // WooCommerce uses sale price if set
                 $variation->set_status('publish');
                 $variation->set_virtual(true);
-                $variation->set_manage_stock(false);
+                $variation->set_manage_stock(true);
+                $variation->set_stock_quantity($slug === 'exclusif' ? 1 : 3);
                 $variation->set_stock_status('instock');
                 $variation_id = $variation->save();
 
                 // Ensure variation metadata
-                update_post_meta($variation_id, '_regular_price', $price);
-                update_post_meta($variation_id, '_price', $price);
+                update_post_meta($variation_id, '_regular_price', $base_price);
+                update_post_meta($variation_id, '_sale_price', $sale_price);
+                update_post_meta($variation_id, '_price', $sale_price);
                 update_post_meta($variation_id, '_virtual', 'yes');
+                update_post_meta($variation_id, '_manage_stock', 'yes');
+                update_post_meta($variation_id, '_stock', $slug === 'exclusif' ? 1 : 3);
                 update_post_meta($variation_id, '_stock_status', 'instock');
                 update_post_meta($variation_id, 'attribute_pa_' . $attribute_name, $slug);
             }
@@ -217,129 +214,145 @@ function wc_lead_submission_form() {
                 }
             }
 
-            // Redirect to show success message
-            wp_redirect(add_query_arg('lead_submitted', 'success', wp_get_referer()));
-            exit;
+            // Set success message
+            $success_message = __('Votre lead a été soumis avec succès. Nos professionnels vous contacteront bientôt...', 'wc-lead-generator');
 
         } catch (Exception $e) {
-            ob_start();
-            ?>
-            <div class="wc-lead-error">
-                <p><?php echo esc_html($e->getMessage()); ?></p>
-            </div>
-            <?php
-            return ob_get_clean();
+            $error_message = $e->getMessage();
         }
     }
 
     ob_start();
     ?>
     <div class="wc-lead-generator-form">
-        <form method="post" enctype="multipart/form-data" id="wc-lead-form">
-            <?php wp_nonce_field('submit_lead_form', 'lead_form_nonce'); ?>
-            
-            <div class="wc-lead-step active" id="step1">
-                <h3><?php _e('Que souhaitez-vous ?', 'wc-lead-generator'); ?></h3>
+        <?php if ($success_message): ?>
+            <div class="wc-lead-success">
+                <p><?php echo esc_html($success_message); ?></p>
+            </div>
+        <?php elseif ($error_message): ?>
+            <div class="wc-lead-error">
+                <p><?php echo esc_html($error_message); ?></p>
+            </div>
+        <?php endif; ?>
+
+        <?php if (!$success_message): ?>
+            <form method="post" enctype="multipart/form-data" id="wc-lead-form">
+                <?php wp_nonce_field('submit_lead_form', 'lead_form_nonce'); ?>
                 
-                <div class="form-group">
-                    <label><?php _e('Quel type de jardin est-ce ?', 'wc-lead-generator'); ?></label>
-                    <select name="garden_type" required>
-                        <option value=""><?php _e('Sélectionner...', 'wc-lead-generator'); ?></option>
-                        <option value="Jardin Privé"><?php _e('Jardin Privé', 'wc-lead-generator'); ?></option>
-                        <option value="Jardin Public"><?php _e('Jardin Public', 'wc-lead-generator'); ?></option>
-                        <option value="Jardin Commercial"><?php _e('Jardin Commercial', 'wc-lead-generator'); ?></option>
-                    </select>
-                </div>
-                
-                <div class="form-group">
-                    <label><?php _e('Quels services avez-vous besoin ?', 'wc-lead-generator'); ?></label>
-                    <select name="service_needed" required>
-                        <option value=""><?php _e('Sélectionner...', 'wc-lead-generator'); ?></option>
-                        <?php
-                        $categories = get_terms([
-                            'taxonomy' => 'product_cat',
-                            'hide_empty' => false,
-                            'orderby' => 'name',
-                            'order' => 'ASC',
-                        ]);
-                        if (!is_wp_error($categories) && !empty($categories)) {
-                            foreach ($categories as $category) {
-                                echo '<option value="' . esc_attr($category->term_id) . '">' . esc_html($category->name) . '</option>';
+                <div class="wc-lead-step active" id="step1">
+                    <h3><?php _e('Que souhaitez-vous ?', 'wc-lead-generator'); ?></h3>
+                    
+                    <div class="form-group">
+                        <label><?php _e('Quel type de jardin est-ce ?', 'wc-lead-generator'); ?></label>
+                        <select name="garden_type" required>
+                            <option value=""><?php _e('Sélectionner...', 'wc-lead-generator'); ?></option>
+                            <option value="Jardin Privé"><?php _e('Jardin Privé', 'wc-lead-generator'); ?></option>
+                            <option value="Jardin Public"><?php _e('Jardin Public', 'wc-lead-generator'); ?></option>
+                            <option value="Jardin Commercial"><?php _e('Jardin Commercial', 'wc-lead-generator'); ?></option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label><?php _e('Quels services avez-vous besoin ?', 'wc-lead-generator'); ?></label>
+                        <select name="service_needed" required>
+                            <option value=""><?php _e('Sélectionner...', 'wc-lead-generator'); ?></option>
+                            <?php
+                            $categories = get_terms([
+                                'taxonomy' => 'product_cat',
+                                'hide_empty' => false,
+                                'orderby' => 'name',
+                                'order' => 'ASC',
+                            ]);
+                            if (!is_wp_error($categories) && !empty($categories)) {
+                                foreach ($categories as $category) {
+                                    echo '<option value="' . esc_attr($category->term_id) . '">' . esc_html($category->name) . '</option>';
+                                }
+                            } else {
+                                echo '<option value="" disabled>' . __('Aucune catégorie disponible', 'wc-lead-generator') . '</option>';
                             }
-                        } else {
-                            echo '<option value="" disabled>' . __('Aucune catégorie disponible', 'wc-lead-generator') . '</option>';
-                        }
-                        ?>
-                    </select>
+                            ?>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+    <label>Quel est votre budget ?</label>
+    <select name="budget" required>
+        <option value="">Sélectionnez une plage de budget</option>
+        <option value="500-1000">500 - 1000 €</option>
+        <option value="1000-1500">1000 - 1500 €</option>
+        <option value="1500-2000">1500 - 2000 €</option>
+        <option value="2000-2500">2000 - 2500 €</option>
+        <option value="2500-3000">2500 - 3000 €</option>
+        <option value="3000-3500">3000 - 3500 €</option>
+        <option value="3500-4000">3500 - 4000 €</option>
+        <option value="4000-4500">4000 - 4500 €</option>
+        <option value="4500-5000">4500 - 5000 €</option>
+    </select>
+</div>
+                    
+                    <div class="form-group">
+                        <label><?php _e('Quelle est la taille de votre jardin ?', 'wc-lead-generator'); ?></label>
+                        <input type="number" name="garden_size" placeholder="m²" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label><?php _e('Avez-vous des photos / vidéos à nous transmettre ? ( in plurial please )', 'wc-lead-generator'); ?></label>
+                        <input type="file" name="garden_photo" accept="image/*">
+                    </div>
+                    
+                    <button type="button" class="wc-lead-next"><?php _e('Suivant', 'wc-lead-generator'); ?></button>
                 </div>
                 
-                <div class="form-group">
-                    <label><?php _e('Quel est votre budget ?', 'wc-lead-generator'); ?></label>
-                    <input type="number" name="budget" placeholder="€" required min="500" max="5000" step="50">
+                <div class="wc-lead-step" id="step2">
+                    <h3><?php _e('Informations de contact', 'wc-lead-generator'); ?> :</h3>
+                    
+                    <div class="form-group">
+                        <label><?php _e('Prénom', 'wc-lead-generator'); ?> :</label>
+                        <input type="text" name="prenom" placeholder="<?php _e('Prénom', 'wc-lead-generator'); ?>" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label><?php _e('Nom', 'wc-lead-generator'); ?> :</label>
+                        <input type="text" name="nom" placeholder="<?php _e('Nom', 'wc-lead-generator'); ?>" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label><?php _e('Code postal', 'wc-lead-generator'); ?> :</label>
+                        <input type="text" name="postal_code" placeholder="<?php _e('Code postal', 'wc-lead-generator'); ?>" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label><?php _e('Ville', 'wc-lead-generator'); ?> :</label>
+                        <input type="text" name="city" placeholder="<?php _e('Ville', 'wc-lead-generator'); ?>" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label><?php _e('Email', 'wc-lead-generator'); ?> :</label>
+                        <input type="email" name="email" placeholder="<?php _e('Email', 'wc-lead-generator'); ?>" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label><?php _e('Téléphone', 'wc-lead-generator'); ?> :</label>
+                        <input type="tel" name="telephone" placeholder="<?php _e('Téléphone', 'wc-lead-generator'); ?>" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label><?php _e('Titre du projet', 'wc-lead-generator'); ?> :</label>
+                        <input type="text" name="project_title" placeholder="<?php _e('Titre du projet', 'wc-lead-generator'); ?>" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label><?php _e('Description du projet', 'wc-lead-generator'); ?> :</label>
+                        <textarea name="project_description" placeholder="<?php _e('Décrivez votre projet', 'wc-lead-generator'); ?>" required></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <button type="button" class="wc-lead-prev"><?php _e('Précédent', 'wc-lead-generator'); ?></button>
+                        <input type="submit" name="wc_lead_submit" value="<?php _e('Soumettre votre demande', 'wc-lead-generator'); ?>">
+                    </div>
                 </div>
-                
-                <div class="form-group">
-                    <label><?php _e('Quelle est la taille de votre jardin ?', 'wc-lead-generator'); ?></label>
-                    <input type="number" name="garden_size" placeholder="m²" required>
-                </div>
-                
-                <div class="form-group">
-                    <label><?php _e('Avez-vous des photos / vidéos à nous transmettre ? ( in plurial please )', 'wc-lead-generator'); ?></label>
-                    <input type="file" name="garden_photo" accept="image/*">
-                </div>
-                
-                <button type="button" class="wc-lead-next"><?php _e('Suivant', 'wc-lead-generator'); ?></button>
-            </div>
-            
-            <div class="wc-lead-step" id="step2">
-                <h3><?php _e('Informations de contact', 'wc-lead-generator'); ?> :</h3>
-                
-                <div class="form-group">
-                    <label><?php _e('Prénom', 'wc-lead-generator'); ?> :</label>
-                    <input type="text" name="prenom" placeholder="<?php _e('Prénom', 'wc-lead-generator'); ?>" required>
-                </div>
-                
-                <div class="form-group">
-                    <label><?php _e('Nom', 'wc-lead-generator'); ?> :</label>
-                    <input type="text" name="nom" placeholder="<?php _e('Nom', 'wc-lead-generator'); ?>" required>
-                </div>
-                
-                <div class="form-group">
-                    <label><?php _e('Code postal', 'wc-lead-generator'); ?> :</label>
-                    <input type="text" name="postal_code" placeholder="<?php _e('Code postal', 'wc-lead-generator'); ?>" required>
-                </div>
-                
-                <div class="form-group">
-                    <label><?php _e('Ville', 'wc-lead-generator'); ?> :</label>
-                    <input type="text" name="city" placeholder="<?php _e('Ville', 'wc-lead-generator'); ?>" required>
-                </div>
-                
-                <div class="form-group">
-                    <label><?php _e('Email', 'wc-lead-generator'); ?> :</label>
-                    <input type="email" name="email" placeholder="<?php _e('Email', 'wc-lead-generator'); ?>" required>
-                </div>
-                
-                <div class="form-group">
-                    <label><?php _e('Téléphone', 'wc-lead-generator'); ?> :</label>
-                    <input type="tel" name="telephone" placeholder="<?php _e('Téléphone', 'wc-lead-generator'); ?>" required>
-                </div>
-                
-                <div class="form-group">
-                    <label><?php _e('Titre du projet', 'wc-lead-generator'); ?> :</label>
-                    <input type="text" name="project_title" placeholder="<?php _e('Titre du projet', 'wc-lead-generator'); ?>" required>
-                </div>
-                
-                <div class="form-group">
-                    <label><?php _e('Description du projet', 'wc-lead-generator'); ?> :</label>
-                    <textarea name="project_description" placeholder="<?php _e('Décrivez votre projet', 'wc-lead-generator'); ?>" required></textarea>
-                </div>
-                
-                <div class="form-group">
-                    <button type="button" class="wc-lead-prev"><?php _e('Précédent', 'wc-lead-generator'); ?></button>
-                    <input type="submit" name="wc_lead_submit" value="<?php _e('Soumettre votre demande', 'wc-lead-generator'); ?>">
-                </div>
-            </div>
-        </form>
+            </form>
+        <?php endif; ?>
     </div>
     <?php
     return ob_get_clean();
