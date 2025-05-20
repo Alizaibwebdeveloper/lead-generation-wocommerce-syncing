@@ -1,9 +1,9 @@
 <?php
 /*
-Plugin Name: WooCommerce Lead Generator
-Description: Allows individuals to submit a project that becomes a WooCommerce product, with information hidden until purchase.
-Version: 1.0
-Author: Ali zaib
+Plugin Name: Générateur de Leads WooCommerce
+Description: Permet aux particuliers de soumettre un projet qui devient un produit WooCommerce, avec des informations masquées jusqu'à l'achat.
+Version: 1.7
+Author: Ali Zaib
 */
 
 if (!defined('ABSPATH')) exit;
@@ -12,152 +12,66 @@ if (!defined('ABSPATH')) exit;
 add_action('wp_enqueue_scripts', 'wc_lead_generator_scripts');
 function wc_lead_generator_scripts() {
     wp_enqueue_style('wc-lead-generator', plugins_url('wc-lead-generator.css', __FILE__));
-    wp_enqueue_script('wc-lead-generator', plugins_url('wc-lead-generator.js', __FILE__), array('jquery'), '1.0', true);
-    wp_enqueue_style('google-fonts', 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap', [], null);
-    wp_enqueue_script('wc-add-to-cart-variation'); // Ensure WooCommerce variation script is loaded
-
-    // Add inline CSS for single product page and shop page styling
-      $custom_css = "
-        .woocommerce ul.products li.product .lead-details {
-            border: 1px solid #ddd;
-            padding: 5px;
-            margin: 5px 0;
-            font-size: 12px;
-        }
-        .woocommerce ul.products li.product .lead-location {
-            color: #e53e3e;
-            font-size: 12px;
-            font-weight: bold;
-        }
-        .woocommerce ul.products li.product .lead-title {
-            font-size: 16px;
-            font-weight: bold;
-            margin: 5px 0;
-        }
-        .woocommerce ul.products li.product .lead-price {
-            font-size: 14px;
-            color: #000;
-        }
-        .woocommerce ul.products li.product .lead-stock {
-            color: #e53e3e;
-            font-size: 12px;
-        }
-        .woocommerce ul.products li.product .lead-client-type {
-            font-size: 12px;
-        }
-        .woocommerce ul.products li.product .lead-sku {
-            font-size: 12px;
-            color: #666;
-        }
-        .single-product .product_title {
-            font-size: 1.5em;
-            font-weight: bold;
-        }
-        .single-product .customer-details {
-            margin-top: 20px;
-        }
-        .single-product .customer-details h3 {
-            font-size: 1.2em;
-            margin-bottom: 10px;
-        }
-        .single-product .customer-details table {
-            width: 100%;
-            border-collapse: collapse;
-            display: table !important; /* Ensure table is not hidden */
-        }
-        .single-product .customer-details th,
-        .single-product .customer-details td {
-            padding: 8px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-        }
-        .single-product .customer-details th {
-            background-color: #f9f9f9;
-            width: 30%;
-        }
-        .single-product .woocommerce-product-details__short-description {
-            margin-bottom: 20px;
-        }
-        .single-product .product_meta {
-            font-size: 0.9em;
-            margin-top: 20px;
-        }
-        .single-product .product_meta .sku_wrapper,
-        .single-product .product_meta .tagged_as {
-            display: block;
-            margin-bottom: 5px;
-        }
-        .single-product .quantity {
-            display: block !important;
-            visibility: visible !important;
-            margin: 10px 0 !important;
-        }
-        .woocommerce-variation-add-to-cart .quantity {
-            display: block !important;
-        }
-    ";
-    wp_add_inline_style('wc-lead-generator', $custom_css);
-}
-
-add_action('wp_footer', 'wc_lead_reinit_variation_form');
-function wc_lead_reinit_variation_form() {
-    if (is_product()) {
-        ?>
-        <script type="text/javascript">
-            jQuery(document).ready(function($) {
-                $('.variations_form').each(function() {
-                    $(this).wc_variation_form();
-                    $(this).trigger('check_variations');
-                    // Force quantity visibility
-                    $('.woocommerce-variation-add-to-cart .quantity').css('display', 'block');
-                });
-                // Debug: Log when variations are checked
-                $(document).on('woocommerce_variation_has_changed', function() {
-                    console.log('Variation changed, checking quantity visibility');
-                    $('.woocommerce-variation-add-to-cart .quantity').css('display', 'block');
-                });
-            });
-        </script>
-        <?php
+    wp_enqueue_script('wc-lead-generator', plugins_url('wc-lead-generator.js', __FILE__), array('jquery'), '1.1', true);
+    wp_enqueue_style('jua-font', 'https://fonts.googleapis.com/css2?family=Jua&display=swap', array(), null);
+    
+    // Ensure WooCommerce scripts are loaded
+    if (is_product() || is_shop()) {
+        wp_enqueue_script('wc-add-to-cart-variation');
+        wp_enqueue_script('woocommerce');
     }
 }
 
 // Main shortcode for the lead submission form
 add_shortcode('lead_submission_form', 'wc_lead_submission_form');
 function wc_lead_submission_form() {
+    // Check if form was submitted successfully
+    if (isset($_GET['lead_submitted']) && $_GET['lead_submitted'] === 'success') {
+        ob_start();
+        ?>
+        <div class="wc-lead-success">
+            <p><?php _e('Votre demande a été soumise avec succès.', 'wc-lead-generator'); ?></p>
+        </div>
+        <?php
+        return ob_get_clean();
+    }
+
     if (isset($_POST['wc_lead_submit'])) {
         try {
-            // Verify nonce for security
+            // Verify nonce
             if (!isset($_POST['lead_form_nonce']) || !wp_verify_nonce($_POST['lead_form_nonce'], 'submit_lead_form')) {
-                throw new Exception(__('Security verification failed. Please try again.', 'wc-lead-generator'));
+                throw new Exception(__('Vérification de sécurité échouée. Veuillez réessayer.', 'wc-lead-generator'));
             }
 
             // Validate required fields
             $required_fields = [
-                'project_title' => __('Project title', 'wc-lead-generator'),
-                'project_description' => __('Project description', 'wc-lead-generator'),
-                'nom' => __('Last name', 'wc-lead-generator'),
-                'prenom' => __('First name', 'wc-lead-generator'),
+                'project_title' => __('Titre du projet', 'wc-lead-generator'),
+                'project_description' => __('Description du projet', 'wc-lead-generator'),
+                'nom' => __('Nom', 'wc-lead-generator'),
+                'prenom' => __('Prénom', 'wc-lead-generator'),
                 'email' => __('Email', 'wc-lead-generator'),
-                'telephone' => __('Phone', 'wc-lead-generator'),
-                'postal_code' => __('Postal code', 'wc-lead-generator'),
-                'city' => __('City', 'wc-lead-generator'),
-                'garden_type' => __('Garden type', 'wc-lead-generator'),
-                'service_needed' => __('Service needed', 'wc-lead-generator'),
+                'telephone' => __('Téléphone', 'wc-lead-generator'),
+                'postal_code' => __('Code postal', 'wc-lead-generator'),
+                'city' => __('Ville', 'wc-lead-generator'),
+                'garden_type' => __('Type de jardin', 'wc-lead-generator'),
+                'service_needed' => __('Service requis', 'wc-lead-generator'),
                 'budget' => __('Budget', 'wc-lead-generator'),
-                'garden_size' => __('Garden size', 'wc-lead-generator')
+                'garden_size' => __('Taille du jardin', 'wc-lead-generator')
             ];
 
             foreach ($required_fields as $field => $field_name) {
                 if (empty($_POST[$field])) {
-                    throw new Exception(sprintf(__('%s is a required field.', 'wc-lead-generator'), $field_name));
+                    throw new Exception(sprintf(__('%s est un champ requis.', 'wc-lead-generator'), $field_name));
                 }
             }
 
-            // Validate email
-            if (!is_email($_POST['email'])) {
-                throw new Exception(__('Please enter a valid email address.', 'wc-lead-generator'));
+            // Validate service_needed (category ID)
+            $service_needed = absint($_POST['service_needed']);
+            $category = get_term($service_needed, 'product_cat');
+            if (!$service_needed || is_wp_error($category) || !$category) {
+                throw new Exception(__('Erreur : Catégorie de service invalide sélectionnée.', 'wc-lead-generator'));
             }
+            $service_name = $category->name;
 
             // Create the product
             $post_id = wp_insert_post([
@@ -170,7 +84,7 @@ function wc_lead_submission_form() {
             ]);
 
             if (is_wp_error($post_id)) {
-                throw new Exception(__('Error creating product: ', 'wc-lead-generator') . $post_id->get_error_message());
+                throw new Exception(__('Erreur lors de la création du produit : ', 'wc-lead-generator') . $post_id->get_error_message());
             }
 
             // Set product as variable
@@ -181,51 +95,92 @@ function wc_lead_submission_form() {
             update_post_meta($post_id, '_visibility', 'visible');
             update_post_meta($post_id, '_virtual', 'yes');
             update_post_meta($post_id, '_sold_individually', 'yes');
+            update_post_meta($post_id, '_manage_stock', 'no');
+            update_post_meta($post_id, '_backorders', 'no');
 
             // Generate and set a custom SKU
             $sku = 'PDJ-N°' . str_pad($post_id, 8, '0', STR_PAD_LEFT);
             update_post_meta($post_id, '_sku', $sku);
 
-            // Define attributes for variations (using a custom attribute, not taxonomy-based)
-            $attribute_data = [
-                'service-type' => [
-                    'name' => 'Service Type',
-                    'value' => 'Creation | Maintenance | Pruning | Watering System',
+            // Assign selected category
+            wp_set_object_terms($post_id, $service_needed, 'product_cat');
+
+            // Add to Leads category
+            $leads_term = term_exists('Leads', 'product_cat');
+            if ($leads_term !== 0 && $leads_term !== null) {
+                wp_set_object_terms($post_id, (int)$leads_term['term_id'], 'product_cat', true);
+            }
+
+            // Create and set product attributes for variations
+            $attribute_name = 'lead-type';
+            $attribute_label = __('Type de Lead', 'wc-lead-generator');
+            $attribute_values = ['standard' => __('Standard (Partagé entre 3 Pros)', 'wc-lead-generator'), 'exclusif' => __('Exclusif (Vous uniquement)', 'wc-lead-generator')];
+
+            $product_attributes = [
+                'pa_' . $attribute_name => [
+                    'name' => 'pa_' . $attribute_name,
+                    'value' => '',
                     'position' => 0,
                     'is_visible' => 1,
                     'is_variation' => 1,
-                    'is_taxonomy' => 0
+                    'is_taxonomy' => 1
                 ]
             ];
-            update_post_meta($post_id, '_product_attributes', $attribute_data);
+            update_post_meta($post_id, '_product_attributes', $product_attributes);
 
-            // Create variations based on the attribute
-            $attribute_values = ['Creation', 'Maintenance', 'Pruning', 'Watering System'];
-            foreach ($attribute_values as $index => $value) {
-                $variation_data = [
-                    'post_title' => 'Variation #' . $value . ' of ' . sanitize_text_field($_POST['project_title']),
-                    'post_name' => 'product-' . $post_id . '-variation-' . strtolower($value),
-                    'post_status' => 'publish',
-                    'post_parent' => $post_id,
-                    'post_type' => 'product_variation',
-                    'comment_status' => 'closed'
-                ];
+            // Register taxonomy and terms
+            $taxonomy = 'pa_' . $attribute_name;
+            if (!taxonomy_exists($taxonomy)) {
+                register_taxonomy($taxonomy, 'product', [
+                    'labels' => ['name' => $attribute_label],
+                    'hierarchical' => false,
+                    'show_ui' => false,
+                    'query_var' => true,
+                    'rewrite' => false,
+                ]);
+            }
 
-                $variation_id = wp_insert_post($variation_data);
-                if (is_wp_error($variation_id)) {
-                    error_log('Variation creation error: ' . $variation_id->get_error_message());
-                    continue;
+            foreach ($attribute_values as $slug => $name) {
+                if (!term_exists($slug, $taxonomy)) {
+                    wp_insert_term($name, $taxonomy, ['slug' => $slug]);
                 }
+            }
+            wp_set_object_terms($post_id, array_keys($attribute_values), $taxonomy);
 
-                // Set variation attributes
-                update_post_meta($variation_id, 'attribute_service-type', $value);
+            // Set default attributes
+            update_post_meta($post_id, '_default_attributes', ['pa_' . $attribute_name => 'standard']);
 
-                // Set variation price and stock status
-                $price = ($index + 1) * 10; // Example: 10, 20, 30, 40 for each variation
-                update_post_meta($variation_id, '_price', $price);
+            // Create variations
+            foreach ($attribute_values as $slug => $name) {
+                $variation = new WC_Product_Variation();
+                $variation->set_parent_id($post_id);
+                $variation->set_attributes(['pa_' . $attribute_name => $slug]);
+                $base_price = 10;
+                $price = $slug === 'exclusif' ? $base_price * 1.5 : $base_price;
+                $variation->set_regular_price($price);
+                $variation->set_sale_price($price);
+                $variation->set_price($price);
+                $variation->set_status('publish');
+                $variation->set_virtual(true);
+                $variation->set_manage_stock(false);
+                $variation->set_stock_status('instock');
+                $variation_id = $variation->save();
+
+                // Ensure variation metadata
                 update_post_meta($variation_id, '_regular_price', $price);
+                update_post_meta($variation_id, '_price', $price);
+                update_post_meta($variation_id, '_virtual', 'yes');
                 update_post_meta($variation_id, '_stock_status', 'instock');
-                update_post_meta($variation_id, '_manage_stock', 'no');
+                update_post_meta($variation_id, 'attribute_pa_' . $attribute_name, $slug);
+            }
+
+            // Sync product and clear caches
+            $product = wc_get_product($post_id);
+            if ($product && $product->is_type('variable')) {
+                WC_Product_Variable::sync($post_id);
+                wc_delete_product_transients($post_id);
+                delete_transient('wc_product_children_' . $post_id);
+                $product->save();
             }
 
             // Store lead information
@@ -244,13 +199,12 @@ function wc_lead_submission_form() {
 
             foreach ($meta_fields as $field => $meta_key) {
                 if (isset($_POST[$field])) {
-                    $value = sanitize_text_field($_POST[$field]);
+                    $value = $field === 'service_needed' ? $service_name : sanitize_text_field($_POST[$field]);
                     update_post_meta($post_id, $meta_key, $value);
-                    error_log("Saving meta for product $post_id: $meta_key = $value");
                 }
             }
 
-            // Handle file upload and set as product image
+            // Handle file upload
             if (!empty($_FILES['garden_photo']['name'])) {
                 require_once(ABSPATH . 'wp-admin/includes/image.php');
                 require_once(ABSPATH . 'wp-admin/includes/file.php');
@@ -260,209 +214,183 @@ function wc_lead_submission_form() {
                 if (!is_wp_error($attachment_id)) {
                     set_post_thumbnail($post_id, $attachment_id);
                     update_post_meta($post_id, 'lead_garden_photo', wp_get_attachment_url($attachment_id));
-                } else {
-                    error_log('File upload error: ' . $attachment_id->get_error_message());
                 }
             }
 
-            // Add to Leads category if it exists
-            $leads_term = term_exists('Leads', 'product_cat');
-            if ($leads_term !== 0 && $leads_term !== null) {
-                wp_set_object_terms($post_id, (int)$leads_term['term_id'], 'product_cat');
-            }
-
-            // Success message
-            echo "<div class='wc-lead-success'><p>" . __('Thank you, your project has been successfully submitted.', 'wc-lead-generator') . "</p></div>";
+            // Redirect to show success message
+            wp_redirect(add_query_arg('lead_submitted', 'success', wp_get_referer()));
+            exit;
 
         } catch (Exception $e) {
-            echo "<div class='wc-lead-error'><p>" . esc_html($e->get_message()) . "</p></div>";
-            return;
+            ob_start();
+            ?>
+            <div class="wc-lead-error">
+                <p><?php echo esc_html($e->getMessage()); ?></p>
+            </div>
+            <?php
+            return ob_get_clean();
         }
     }
 
     ob_start();
     ?>
     <div class="wc-lead-generator-form">
-        <div class="wc-lead-header">
-            <h1>Find a Landscaper near you!</h1>
-            <p>Once your request is received, one of our experts will contact you by phone and adjust it with you!</p>
-        </div>
-
-        <div class="wc-lead-service-types">
-            <h2>REGULAR REQUEST TYPE:</h2>
-            <ul>
-                <li>Landscaping creation (Payment in X installments without charge)</li>
-                <li>One-off interview</li>
-                <li>Pruning & Felling</li>
-                <li>Deployment of an automatic watering system</li>
-                <li>Monthly Maintenance (With immediate tax deduction)</li>
-            </ul>
-        </div>
-
         <form method="post" enctype="multipart/form-data" id="wc-lead-form">
             <?php wp_nonce_field('submit_lead_form', 'lead_form_nonce'); ?>
-                   
+            
             <div class="wc-lead-step active" id="step1">
-                <h3>What would you like?</h3>
+                <h3><?php _e('Que souhaitez-vous ?', 'wc-lead-generator'); ?></h3>
                 
                 <div class="form-group">
-                    <label>What type of garden is it?</label>
+                    <label><?php _e('Quel type de jardin est-ce ?', 'wc-lead-generator'); ?></label>
                     <select name="garden_type" required>
-                        <option value="">Select...</option>
-                        <option value="Private Garden">Private Garden</option>
-                        <option value="Public Garden">Public Garden</option>
-                        <option value="Commercial Garden">Commercial Garden</option>
+                        <option value=""><?php _e('Sélectionner...', 'wc-lead-generator'); ?></option>
+                        <option value="Jardin Privé"><?php _e('Jardin Privé', 'wc-lead-generator'); ?></option>
+                        <option value="Jardin Public"><?php _e('Jardin Public', 'wc-lead-generator'); ?></option>
+                        <option value="Jardin Commercial"><?php _e('Jardin Commercial', 'wc-lead-generator'); ?></option>
                     </select>
                 </div>
                 
                 <div class="form-group">
-                    <label>What services do you need?</label>
+                    <label><?php _e('Quels services avez-vous besoin ?', 'wc-lead-generator'); ?></label>
                     <select name="service_needed" required>
-                        <option value="">Select...</option>
-                        <option value="Creation">Creation</option>
-                        <option value="Maintenance">Maintenance</option>
-                        <option value="Pruning">Pruning & Felling</option>
-                        <option value="Watering System">Automatic Watering System</option>
+                        <option value=""><?php _e('Sélectionner...', 'wc-lead-generator'); ?></option>
+                        <?php
+                        $categories = get_terms([
+                            'taxonomy' => 'product_cat',
+                            'hide_empty' => false,
+                            'orderby' => 'name',
+                            'order' => 'ASC',
+                        ]);
+                        if (!is_wp_error($categories) && !empty($categories)) {
+                            foreach ($categories as $category) {
+                                echo '<option value="' . esc_attr($category->term_id) . '">' . esc_html($category->name) . '</option>';
+                            }
+                        } else {
+                            echo '<option value="" disabled>' . __('Aucune catégorie disponible', 'wc-lead-generator') . '</option>';
+                        }
+                        ?>
                     </select>
                 </div>
                 
                 <div class="form-group">
-                    <label>What budgets do you have?</label>
-                    <input type="text" name="budget" placeholder="€" required>
+                    <label><?php _e('Quel est votre budget ?', 'wc-lead-generator'); ?></label>
+                    <input type="number" name="budget" placeholder="€" required min="500" max="5000" step="50">
                 </div>
                 
                 <div class="form-group">
-                    <label>What is the size of your garden layout?</label>
+                    <label><?php _e('Quelle est la taille de votre jardin ?', 'wc-lead-generator'); ?></label>
                     <input type="number" name="garden_size" placeholder="m²" required>
                 </div>
                 
                 <div class="form-group">
-                    <label>Do you have a photo?</label>
+                    <label><?php _e('Avez-vous des photos / vidéos à nous transmettre ? ( in plurial please )', 'wc-lead-generator'); ?></label>
                     <input type="file" name="garden_photo" accept="image/*">
                 </div>
                 
-                <button type="button" class="wc-lead-next">Next</button>
+                <button type="button" class="wc-lead-next"><?php _e('Suivant', 'wc-lead-generator'); ?></button>
             </div>
             
-     
             <div class="wc-lead-step" id="step2">
-                <h3>Contact Information:</h3>
+                <h3><?php _e('Informations de contact', 'wc-lead-generator'); ?> :</h3>
+                
                 <div class="form-group">
-                    <label>First Name:</label>
-                    <input type="text" name="prenom" placeholder="First Name" required>
+                    <label><?php _e('Prénom', 'wc-lead-generator'); ?> :</label>
+                    <input type="text" name="prenom" placeholder="<?php _e('Prénom', 'wc-lead-generator'); ?>" required>
                 </div>
                 
                 <div class="form-group">
-                    <label>Last Name:</label>
-                    <input type="text" name="nom" placeholder="Last Name" required>
+                    <label><?php _e('Nom', 'wc-lead-generator'); ?> :</label>
+                    <input type="text" name="nom" placeholder="<?php _e('Nom', 'wc-lead-generator'); ?>" required>
                 </div>
                 
                 <div class="form-group">
-                    <label>Postal Code:</label>
-                    <input type="text" name="postal_code" placeholder="Postal Code" required>
+                    <label><?php _e('Code postal', 'wc-lead-generator'); ?> :</label>
+                    <input type="text" name="postal_code" placeholder="<?php _e('Code postal', 'wc-lead-generator'); ?>" required>
                 </div>
                 
                 <div class="form-group">
-                    <label>City:</label>
-                    <input type="text" name="city" placeholder="City" required>
+                    <label><?php _e('Ville', 'wc-lead-generator'); ?> :</label>
+                    <input type="text" name="city" placeholder="<?php _e('Ville', 'wc-lead-generator'); ?>" required>
                 </div>
                 
                 <div class="form-group">
-                    <label>Email:</label>
-                    <input type="email" name="email" placeholder="Email" required>
+                    <label><?php _e('Email', 'wc-lead-generator'); ?> :</label>
+                    <input type="email" name="email" placeholder="<?php _e('Email', 'wc-lead-generator'); ?>" required>
                 </div>
                 
                 <div class="form-group">
-                    <label>Phone:</label>
-                    <input type="tel" name="telephone" placeholder="Phone" required>
+                    <label><?php _e('Téléphone', 'wc-lead-generator'); ?> :</label>
+                    <input type="tel" name="telephone" placeholder="<?php _e('Téléphone', 'wc-lead-generator'); ?>" required>
                 </div>
                 
                 <div class="form-group">
-                    <label>Project Title:</label>
-                    <input type="text" name="project_title" placeholder="Project Title" required>
+                    <label><?php _e('Titre du projet', 'wc-lead-generator'); ?> :</label>
+                    <input type="text" name="project_title" placeholder="<?php _e('Titre du projet', 'wc-lead-generator'); ?>" required>
                 </div>
                 
                 <div class="form-group">
-                    <label>Project Description:</label>
-                    <textarea name="project_description" placeholder="Describe your project" required></textarea>
+                    <label><?php _e('Description du projet', 'wc-lead-generator'); ?> :</label>
+                    <textarea name="project_description" placeholder="<?php _e('Décrivez votre projet', 'wc-lead-generator'); ?>" required></textarea>
                 </div>
                 
                 <div class="form-group">
-                    <button type="button" class="wc-lead-prev">Previous</button>
-                    <input type="submit" name="wc_lead_submit" value="Submit your request">
+                    <button type="button" class="wc-lead-prev"><?php _e('Précédent', 'wc-lead-generator'); ?></button>
+                    <input type="submit" name="wc_lead_submit" value="<?php _e('Soumettre votre demande', 'wc-lead-generator'); ?>">
                 </div>
             </div>
         </form>
-        
-        <div class="wc-lead-footer">
-            <h3>More About info:</h3>
-            <p>I'm sure it is help</p>
-            <p>To meet up your needs</p>
-            <p>Contact us: contact@monobojardin.fr - 04 65 84 77 80</p>
-            <p>With the immediate advance tax credit of 50% via UISSAR. (For maintenance contracts)</p>
-            <p>MY GARDEN SUBSCRIPTION©2025 – All rights reserved – photos and videos are not contractual.</p>
-            <p>Site created by the communications agency</p>
-        </div>
     </div>
     <?php
     return ob_get_clean();
 }
 
-// Customize the shop loop to display custom product details
+// Customize the shop loop
 add_action('woocommerce_before_shop_loop_item', 'wc_lead_generator_custom_shop_display', 5);
 function wc_lead_generator_custom_shop_display() {
     global $product;
 
-    // Get custom meta fields
     $city = get_post_meta($product->get_id(), 'lead_city', true);
     $postal_code = get_post_meta($product->get_id(), 'lead_postal_code', true);
     $garden_type = get_post_meta($product->get_id(), 'lead_garden_type', true);
     $service_needed = get_post_meta($product->get_id(), 'lead_service_needed', true);
 
-    // Location (e.g., "63 - PUY-DE-DÔME")
     $location = !empty($postal_code) ? substr($postal_code, 0, 2) . ' - ' . strtoupper($city) : strtoupper($city);
     echo '<div class="lead-location">' . esc_html($location) . '</div>';
 
-    // Title (e.g., "Entretien haies - 63000 CLERMONT-FERRAND")
     $title = $service_needed . ' - ' . $postal_code . ' ' . strtoupper($city);
     echo '<div class="lead-title">' . esc_html($title) . '</div>';
 
-    // Price range (already handled by WooCommerce for variable products)
     echo '<div class="lead-price">';
     woocommerce_template_loop_price();
     echo ' HT</div>';
 
-    // Stock status
     echo '<div class="lead-stock">';
     if (!$product->is_in_stock()) {
-        echo '<span class="out-of-stock">Rupture de stock</span>';
+        echo '<span class="out-of-stock">' . __('Rupture de stock', 'wc-lead-generator') . '</span>';
     }
     echo '</div>';
 
-    // Client type (hardcoded as "Particulier" for now)
-    echo '<div class="lead-client-type">Type de Client: Particulier</div>';
+    echo '<div class="lead-client-type">' . __('Type de Client : Particulier', 'wc-lead-generator') . '</div>';
 
-    // Garden type (e.g., "Type de jardin: Jardin en copropriété")
     echo '<div class="lead-details">';
-    echo '<div>Type de jardin: ' . esc_html($garden_type) . '</div>';
+    echo '<div>' . __('Type de jardin : ', 'wc-lead-generator') . esc_html($garden_type) . '</div>';
 
-    // SKU
     $sku = $product->get_sku();
     if ($sku) {
-        echo '<div class="lead-sku">SKU: ' . esc_html($sku) . '</div>';
+        echo '<div class="lead-sku">' . __('SKU : ', 'wc-lead-generator') . esc_html($sku) . '</div>';
     }
     echo '</div>';
 }
 
-// Remove default title and price to avoid duplication
 remove_action('woocommerce_shop_loop_item_title', 'woocommerce_template_loop_product_title', 10);
 remove_action('woocommerce_after_shop_loop_item_title', 'woocommerce_template_loop_price', 10);
 
-// Add custom tab for customer details on single product page
+// Add customer details tab
 add_filter('woocommerce_product_tabs', 'wc_lead_add_customer_details_tab');
 function wc_lead_add_customer_details_tab($tabs) {
     $tabs['customer_details'] = [
-        'title' => __('Customer Details', 'wc-lead-generator'),
+        'title' => __('Détails du Client', 'wc-lead-generator'),
         'priority' => 20,
         'callback' => 'wc_lead_customer_details_tab_content'
     ];
@@ -472,10 +400,6 @@ function wc_lead_add_customer_details_tab($tabs) {
 function wc_lead_customer_details_tab_content() {
     global $product;
 
-    // Debug: Confirm this function is called
-    error_log("Customer Details tab content called for product ID: " . $product->get_id());
-
-    // Get form data
     $prenom = get_post_meta($product->get_id(), 'lead_prenom', true);
     $nom = get_post_meta($product->get_id(), 'lead_nom', true);
     $email = get_post_meta($product->get_id(), 'lead_email', true);
@@ -487,80 +411,72 @@ function wc_lead_customer_details_tab_content() {
     $budget = get_post_meta($product->get_id(), 'lead_budget', true);
     $garden_size = get_post_meta($product->get_id(), 'lead_garden_size', true);
 
-    // Debug: Log all meta values to check if they are retrieved
-    $all_meta = get_post_meta($product->get_id());
-    error_log("All meta for product " . $product->get_id() . " on single product page: " . print_r($all_meta, true));
-
-    // Check if the user has purchased the product
     $current_user = wp_get_current_user();
     $purchased = wc_customer_bought_product($current_user->user_email, $current_user->ID, $product->get_id());
 
     echo '<div class="customer-details">';
-    echo '<h3>' . __('Customer Details', 'wc-lead-generator') . '</h3>';
+    echo '<h3>' . __('Détails du Client', 'wc-lead-generator') . '</h3>';
     echo '<table>';
     
-    // Always visible fields
-    echo '<tr><th>' . __('Customer Type', 'wc-lead-generator') . '</th><td>Individual</td></tr>';
-    echo '<tr><th>' . __('Type of Garden', 'wc-lead-generator') . '</th><td>' . esc_html($garden_type ?: 'N/A') . '</td></tr>';
-    echo '<tr><th>' . __('Type of Service Desired', 'wc-lead-generator') . '</th><td>' . esc_html($service_needed ?: 'N/A') . '</td></tr>';
-    echo '<tr><th>' . __('Surface Area (in m²)', 'wc-lead-generator') . '</th><td>' . esc_html($garden_size ?: 'N/A') . '</td></tr>';
-    echo '<tr><th>' . __('Tree Height for Felling/Pruning', 'wc-lead-generator') . '</th><td>N/A</td></tr>';
-    echo '<tr><th>' . __('Easy Access?', 'wc-lead-generator') . '</th><td>Yes</td></tr>';
-    echo '<tr><th>' . __('Location', 'wc-lead-generator') . '</th><td>' . esc_html($city ?: 'N/A') . ' (' . esc_html($postal_code ?: 'N/A') . ')</td></tr>';
+    echo '<tr><th>' . __('Type de Client', 'wc-lead-generator') . '</th><td>' . __('Particulier', 'wc-lead-generator') . '</td></tr>';
+    echo '<tr><th>' . __('Type de Jardin', 'wc-lead-generator') . '</th><td>' . esc_html($garden_type ?: 'N/A') . '</td></tr>';
+    echo '<tr><th>' . __('Type de Service Souhaité', 'wc-lead-generator') . '</th><td>' . esc_html($service_needed ?: 'N/A') . '</td></tr>';
+    echo '<tr><th>' . __('Surface (en m²)', 'wc-lead-generator') . '</th><td>' . esc_html($garden_size ?: 'N/A') . '</td></tr>';
+    echo '<tr><th>' . __('Localisation', 'wc-lead-generator') . '</th><td>' . esc_html($city ?: 'N/A') . ' (' . esc_html($postal_code ?: 'N/A') . ')</td></tr>';
     echo '<tr><th>' . __('Budget', 'wc-lead-generator') . '</th><td>' . esc_html($budget ?: 'N/A') . '€</td></tr>';
-    echo '<tr><th>' . __('Lead Type', 'wc-lead-generator') . '</th><td>Standard (Shared between 3 Pros), Exclusive (YOU only)</td></tr>';
-    echo '<tr><th>' . __('Department', 'wc-lead-generator') . '</th><td>' . esc_html(substr($postal_code, 0, 2) ?: 'N/A') . ' - ' . strtoupper($city ?: 'N/A') . '</td></tr>';
 
-    // Sensitive fields (visible only after purchase)
     if ($purchased) {
-        echo '<tr><th>' . __('First Name', 'wc-lead-generator') . '</th><td>' . esc_html($prenom ?: 'N/A') . '</td></tr>';
-        echo '<tr><th>' . __('Last Name', 'wc-lead-generator') . '</th><td>' . esc_html($nom ?: 'N/A') . '</td></tr>';
+        echo '<tr><th>' . __('Prénom', 'wc-lead-generator') . '</th><td>' . esc_html($prenom ?: 'N/A') . '</td></tr>';
+        echo '<tr><th>' . __('Nom', 'wc-lead-generator') . '</th><td>' . esc_html($nom ?: 'N/A') . '</td></tr>';
         echo '<tr><th>' . __('Email', 'wc-lead-generator') . '</th><td>' . esc_html($email ?: 'N/A') . '</td></tr>';
-        echo '<tr><th>' . __('Phone', 'wc-lead-generator') . '</th><td>' . esc_html($telephone ?: 'N/A') . '</td></tr>';
+        echo '<tr><th>' . __('Téléphone', 'wc-lead-generator') . '</th><td>' . esc_html($telephone ?: 'N/A') . '</td></tr>';
     } else {
-        echo '<tr><th colspan="2">' . __('Contact information available after purchase.', 'wc-lead-generator') . '</th></tr>';
+        echo '<tr><th colspan="2">' . __('Les informations de contact sont disponibles après l\'achat.', 'wc-lead-generator') . '</th></tr>';
     }
 
     echo '</table>';
     echo '</div>';
 }
 
-// Customize the single product page title
+// Customize product title
 add_filter('the_title', 'wc_lead_custom_product_title', 10, 2);
 function wc_lead_custom_product_title($title, $id) {
     if (is_single() && get_post_type($id) === 'product') {
         $city = get_post_meta($id, 'lead_city', true);
         $postal_code = get_post_meta($id, 'lead_postal_code', true);
         $service_needed = get_post_meta($id, 'lead_service_needed', true);
-        $title = $service_needed . ' - ' . $postal_code . ' ' . strtoupper($city);
+        
+        if (!empty($city) && !empty($postal_code) && !empty($service_needed)) {
+            $title = $service_needed . ' - ' . $postal_code . ' ' . strtoupper($city);
+        }
     }
     return $title;
 }
 
-// Ensure SKU and tags are displayed on the single product page
+// Display product meta
 add_action('woocommerce_single_product_summary', 'wc_lead_display_product_meta', 40);
 function wc_lead_display_product_meta() {
     global $product;
 
     echo '<div class="product_meta">';
     if ($sku = $product->get_sku()) {
-        echo '<span class="sku_wrapper">' . __('SKU:', 'woocommerce') . ' <span class="sku">' . esc_html($sku) . '</span></span>';
+        echo '<span class="sku_wrapper">' . __('SKU :', 'woocommerce') . ' <span class="sku">' . esc_html($sku) . '</span></span>';
     }
 
     $tags = get_the_terms($product->get_id(), 'product_tag');
     if ($tags && !is_wp_error($tags)) {
         $tag_names = wp_list_pluck($tags, 'name');
-        echo '<span class="tagged_as">' . __('Tags:', 'woocommerce') . ' ' . esc_html(implode(', ', $tag_names)) . '</span>';
+        echo '<span class="tagged_as">' . __('Étiquettes :', 'woocommerce') . ' ' . esc_html(implode(', ', $tag_names)) . '</span>';
     }
     echo '</div>';
 }
 
-// Add custom meta box to product edit page for admin
+// Add admin meta box
 add_action('add_meta_boxes', 'wc_lead_add_admin_meta_box');
 function wc_lead_add_admin_meta_box() {
     add_meta_box(
         'wc_lead_admin_details',
-        __('Lead Details', 'wc-lead-generator'),
+        __('Détails du Lead', 'wc-lead-generator'),
         'wc_lead_admin_details_callback',
         'product',
         'normal',
@@ -569,38 +485,83 @@ function wc_lead_add_admin_meta_box() {
 }
 
 function wc_lead_admin_details_callback($post) {
-    // Check user capability to ensure only admins can view
     if (!current_user_can('manage_woocommerce')) {
         return;
     }
 
-    // Get the lead email
     $email = get_post_meta($post->ID, 'lead_email', true);
+    $phone = get_post_meta($post->ID, 'lead_phone', true);
+    $nom = get_post_meta($post->ID, 'lead_nom', true);
+    $prenom = get_post_meta($post->ID, 'lead_prenom', true);
 
-    // Output the email
     echo '<div class="wc-lead-admin-details">';
-    echo '<h3>' . __('Lead Contact Information', 'wc-lead-generator') . '</h3>';
-    echo '<p><strong>' . __('Email:', 'wc-lead-generator') . '</strong> ' . esc_html($email ?: 'N/A') . '</p>';
+    echo '<h3>' . __('Informations de Contact du Lead', 'wc-lead-generator') . '</h3>';
+    echo '<p><strong>' . __('Nom :', 'wc-lead-generator') . '</strong> ' . esc_html($nom ?: 'N/A') . '</p>';
+    echo '<p><strong>' . __('Prénom :', 'wc-lead-generator') . '</strong> ' . esc_html($prenom ?: 'N/A') . '</p>';
+    echo '<p><strong>' . __('Email :', 'wc-lead-generator') . '</strong> ' . esc_html($email ?: 'N/A') . '</p>';
+    echo '<p><strong>' . __('Téléphone :', 'wc-lead-generator') . '</strong> ' . esc_html($phone ?: 'N/A') . '</p>';
     echo '</div>';
 }
 
-// Send contact info to buyer after purchase
+// Send contact info after purchase
 add_action('woocommerce_order_status_completed', 'wc_lead_send_contact_info_to_buyer');
 function wc_lead_send_contact_info_to_buyer($order_id) {
     $order = wc_get_order($order_id);
     $user_email = $order->get_billing_email();
     $items = $order->get_items();
 
-    $message = "Merci pour votre achat. Voici les informations du lead :\n\n";
+    $message = __("Merci pour votre achat. Voici les informations du lead :\n\n", 'wc-lead-generator');
 
     foreach ($items as $item) {
         $product_id = $item->get_product_id();
-        $message .= "Projet : " . get_the_title($product_id) . "\n";
-        $message .= "Nom : " . get_post_meta($product_id, 'lead_nom', true) . "\n";
-        $message .= "Prénom : " . get_post_meta($product_id, 'lead_prenom', true) . "\n";
-        $message .= "Email : " . get_post_meta($product_id, 'lead_email', true) . "\n";
-        $message .= "Téléphone : " . get_post_meta($product_id, 'lead_phone', true) . "\n\n";
+        $message .= __("Projet : ", 'wc-lead-generator') . get_the_title($product_id) . "\n";
+        $message .= __("Nom : ", 'wc-lead-generator') . get_post_meta($product_id, 'lead_nom', true) . "\n";
+        $message .= __("Prénom : ", 'wc-lead-generator') . get_post_meta($product_id, 'lead_prenom', true) . "\n";
+        $message .= __("Email : ", 'wc-lead-generator') . get_post_meta($product_id, 'lead_email', true) . "\n";
+        $message .= __("Téléphone : ", 'wc-lead-generator') . get_post_meta($product_id, 'lead_phone', true) . "\n\n";
     }
 
-    wp_mail($user_email, 'Votre lead acheté', $message);
+    wp_mail($user_email, __('Votre lead acheté', 'wc-lead-generator'), $message);
 }
+
+// Fix variation display issues
+add_action('wp_footer', 'wc_lead_reinit_variation_form');
+function wc_lead_reinit_variation_form() {
+    if (is_product()) {
+        ?>
+        <script type="text/javascript">
+            jQuery(document).ready(function($) {
+                var $form = $('.variations_form');
+                if ($form.length && typeof $.fn.wc_variation_form === 'function') {
+                    $form.wc_variation_form();
+                    $form.trigger('check_variations');
+                    $form.find('.variations select').each(function() {
+                        if ($(this).val() === '') {
+                            $(this).val($(this).find('option:not([value=""])').first().val()).change();
+                        }
+                    });
+                    $('.woocommerce-variation-add-to-cart, .quantity').css({
+                        'display': 'block',
+                        'visibility': 'visible',
+                        'opacity': 1
+                    });
+                } else {
+                    console.error('WooCommerce variation form script not loaded or form not found!');
+                }
+            });
+        </script>
+        <?php
+    }
+}
+
+// Ensure product data is saved properly
+add_action('woocommerce_process_product_meta_variable', 'wc_lead_save_variable_product', 10, 1);
+function wc_lead_save_variable_product($post_id) {
+    $product = wc_get_product($post_id);
+    if ($product && $product->is_type('variable')) {
+        $product->save();
+        wc_delete_product_transients($post_id);
+        WC_Cache_Helper::get_transient_version('product', true);
+    }
+}
+?>

@@ -1,32 +1,24 @@
 jQuery(document).ready(function ($) {
-    $('.wc-lead-next').click(function () {
-        var currentStep = $(this).closest('.wc-lead-step');
-        var nextStep = currentStep.next('.wc-lead-step');
+    // Hide step2 initially
+    $('#step2').hide();
 
-        // Validate current step before proceeding
-        var isValid = true;
-        currentStep.find('[required]').each(function () {
-            if (!$(this).val()) {
-                isValid = false;
-                $(this).addClass('error');
-            } else {
-                $(this).removeClass('error');
-            }
-        });
-
-        if (isValid) {
-            currentStep.removeClass('active');
-            nextStep.addClass('active');
-        } else {
-            alert('Please fill in all required fields.');
-        }
+    // Next button: Show step2, hide step1
+    $('.wc-lead-next').click(function (e) {
+        e.preventDefault();
+        $('#step1').removeClass('active').hide();
+        $('#step2').addClass('active').show();
     });
 
-    $('.wc-lead-prev').click(function () {
-        var currentStep = $(this).closest('.wc-lead-step');
-        var prevStep = currentStep.prev('.wc-lead-step');
+    // Previous button: Show step1, hide step2
+    $('.wc-lead-prev').click(function (e) {
+        e.preventDefault();
+        $('#step2').removeClass('active').hide();
+        $('#step1').addClass('active').show();
+    });
 
-        currentStep.removeClass('active');
-        prevStep.addClass('active');
+    // Ensure form submission is not blocked
+    $('#wc-lead-form').on('submit', function (e) {
+        // Allow form submission to proceed
+        return true;
     });
 });
