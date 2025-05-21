@@ -215,7 +215,7 @@ function wc_lead_submission_form() {
             }
 
             // Set success message
-            $success_message = __('Votre lead a été soumis avec succès. Nos professionnels vous contacteront bientôt...', 'wc-lead-generator');
+            $success_message = __('Merci pour votre demande, nous l"avons bien reçu, l"un de nos paysagiste va vous recontacter dans les meilleurs délai', 'wc-lead-generator');
 
         } catch (Exception $e) {
             $error_message = $e->getMessage();
@@ -229,6 +229,66 @@ function wc_lead_submission_form() {
             <div class="wc-lead-success">
                 <p><?php echo esc_html($success_message); ?></p>
             </div>
+            <div id="wc-lead-success-popup" class="wc-lead-popup" style="display: none;">
+                <div class="wc-lead-popup-content">
+                    <span class="wc-lead-popup-close">&times;</span>
+                    <p><?php echo esc_html($success_message); ?></p>
+                </div>
+            </div>
+            <style>
+                .wc-lead-popup {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: flex-end;
+    align-items: flex-start;
+    z-index: 1000;
+}
+.wc-lead-popup-content {
+    background: linear-gradient(135deg, #28a745, #81c784);
+    color: white;
+    padding: 20px;
+    border-radius: 8px;
+    font-family: 'Jua', sans-serif;
+    position: relative;
+    max-width: 400px;
+    text-align: center;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    margin-top: 12px;
+    margin-right: 20px;
+}
+.wc-lead-popup-close {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    font-size: 24px;
+    cursor: pointer;
+    color: white;
+}
+.wc-lead-popup-content p {
+    margin: 0;
+    font-size: 18px;
+}            </style>
+            <script>
+                jQuery(document).ready(function($) {
+                    var $popup = $('#wc-lead-success-popup');
+                    if ($popup.find('p').text().trim() !== '') {
+                        $popup.show();
+                    }
+                    $('.wc-lead-popup-close').on('click', function() {
+                        $popup.hide();
+                    });
+                    $popup.on('click', function(e) {
+                        if (e.target === this) {
+                            $popup.hide();
+                        }
+                    });
+                });
+            </script>
         <?php elseif ($error_message): ?>
             <div class="wc-lead-error">
                 <p><?php echo esc_html($error_message); ?></p>
@@ -275,20 +335,20 @@ function wc_lead_submission_form() {
                     </div>
                     
                     <div class="form-group">
-    <label>Quel est votre budget ?</label>
-    <select name="budget" required>
-        <option value="">Sélectionnez une plage de budget</option>
-        <option value="500-1000">500 - 1000 €</option>
-        <option value="1000-1500">1000 - 1500 €</option>
-        <option value="1500-2000">1500 - 2000 €</option>
-        <option value="2000-2500">2000 - 2500 €</option>
-        <option value="2500-3000">2500 - 3000 €</option>
-        <option value="3000-3500">3000 - 3500 €</option>
-        <option value="3500-4000">3500 - 4000 €</option>
-        <option value="4000-4500">4000 - 4500 €</option>
-        <option value="4500-5000">4500 - 5000 €</option>
-    </select>
-</div>
+                        <label><?php _e('Quel est votre budget ?', 'wc-lead-generator'); ?></label>
+                        <select name="budget" required>
+                            <option value=""><?php _e('Sélectionnez une plage de budget', 'wc-lead-generator'); ?></option>
+                            <option value="500-1000">500 - 1000 €</option>
+                            <option value="1000-1500">1000 - 1500 €</option>
+                            <option value="1500-2000">1500 - 2000 €</option>
+                            <option value="2000-2500">2000 - 2500 €</option>
+                            <option value="2500-3000">2500 - 3000 €</option>
+                            <option value="3000-3500">3000 - 3500 €</option>
+                            <option value="3500-4000">3500 - 4000 €</option>
+                            <option value="4000-4500">4000 - 4500 €</option>
+                            <option value="4500-5000">4500 - 5000 €</option>
+                        </select>
+                    </div>
                     
                     <div class="form-group">
                         <label><?php _e('Quelle est la taille de votre jardin ?', 'wc-lead-generator'); ?></label>
@@ -296,7 +356,7 @@ function wc_lead_submission_form() {
                     </div>
                     
                     <div class="form-group">
-                        <label><?php _e('Avez-vous des photos / vidéos à nous transmettre ? ( in plurial please )', 'wc-lead-generator'); ?></label>
+                        <label><?php _e('Avez-vous des photos / vidéos à nous transmettre ?', 'wc-lead-generator'); ?></label>
                         <input type="file" name="garden_photo" accept="image/*">
                     </div>
                     
